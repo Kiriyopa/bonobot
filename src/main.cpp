@@ -1,29 +1,29 @@
 #include "main.h"
 using namespace pros;
 Controller master (E_CONTROLLER_MASTER); //Connects controller, Motors to port#
-Motor frontLeft(0);
-Motor frontRight(0);
-Motor backLeft(0);
-Motor backRight(0);
-Motor liftLeft(0);
-Motor liftRight(0);
-Motor clamp(0);
+Motor frontLeft(4);
+Motor frontRight(11);
+Motor backLeft(7);
+Motor backRight(8);
+Motor liftLeft(1);
+Motor liftRight(2);
+Motor clamp(12);
 
-class robotState  //Functions to be used with controller
+class robotState  //naming functions for autonomous, all removed and will return when autonomous is programmed
 {
 public:
-	void rightMotors(int voltage, int reps);
 	void leftMotors(int voltage, int reps);
+	void rightMotors(int voltage, int reps);
 	void forward(int voltage, int reps);
 	void backward(int voltage, int reps);
 	void raise(int voltage, int reps);
 	void lower(int voltage, int reps);
 	void brakeLeft();
 	void brakeRight();
-	void clampUp(); // not described or implemented yet
-	void clampDown(); // not described or implemented yet
+	void clampUp(int voltage, int reps);
+	void clampDown(int voltage, int reps);
 public:
-	int delay = 10; //initialize delay time
+	int delay = 1; //initialize delay time
 };
 
 class Vec2d //for stick inputs
@@ -47,10 +47,10 @@ public:
 	void drive();
 	controllerState();
 public:
+	bool leftBumper1;
 	bool rightBumper1;
-  bool leftBumper1;
+	bool leftBumper2;
   bool rightBumper2;
-  bool leftBumper2;
 	Vec2d leftStick;
 	Vec2d rightStick;
 	bool a;
@@ -73,10 +73,10 @@ void controllerState::getControllerState()  //naming controller buttons
 	b = master.get_digital_new_press(DIGITAL_B);
 	y = master.get_digital_new_press(DIGITAL_Y);
 	x = master.get_digital_new_press(DIGITAL_X);
-	uArrow = master.get_digital(DIGITAL_UP);
-	dArrow = master.get_digital(DIGITAL_DOWN);
-	lArrow = master.get_digital(DIGITAL_LEFT);
-	rArrow = master.get_digital(DIGITAL_RIGHT);
+	uarrow = master.get_digital(DIGITAL_UP);
+	darrow = master.get_digital(DIGITAL_DOWN);
+	larrow = master.get_digital(DIGITAL_LEFT);
+	rarrow = master.get_digital(DIGITAL_RIGHT);
 	leftStick.x = master.get_analog(ANALOG_LEFT_X);
 	leftStick.y = master.get_analog(ANALOG_LEFT_Y);
 	rightStick.x = master.get_analog(ANALOG_RIGHT_X);
@@ -107,13 +107,6 @@ controllerState::controllerState()  // initializing all controller button values
     backLeft.move(0);
 }
 
-void setDriveVoltage(int voltL, int voltR){ //values inputted upon initialization. NOTE: Drive motor orientations are wack, edit directions to match.
-	frontLeft=voltL;
-	frontRight=-voltR;
-	backLeft=voltL;
-	backRight=-voltR;
-}
-
 void on_center_button() { // callback function from template (does the text actually display?)
 	static bool pressed = false;
 	pressed = !pressed;
@@ -124,82 +117,6 @@ void on_center_button() { // callback function from template (does the text actu
 	}
 }
 
-void robotState::leftMotors(int voltage, int reps) // turn left side wheels
-{
-	for(int i = 0; i<reps; i++)
-	{
-	frontLeft.move(voltage);
-	backLeft.move(voltage);
-	pros::delay(delay);
-  }
-}
-
-void robotState::rightMotors(int voltage, int reps) // turn right side wheels
-{
-	for(int i =0; i<reps; i++)
-	{
-		frontRight.move(voltage);
-		backRight.move(voltage);
-		pros::delay(delay);
-	}
-}
-
-void robotState::raise(int voltage, int reps) // raise lift
-{
-	for(int i = 0; i < reps; i++)
-	{
-		liftLeft.move(voltage);
-		liftRight.move(voltage);
-		pros::delay(delay);
-	}
-	liftLeft.set_brake_mode(E_MOTOR_BRAKE_HOLD);
-	liftRight.set_brake_mode(E_MOTOR_BRAKE_HOLD);
-}
-
-void robotState::lower(int voltage, int reps) // lower lift
-{
-	for(int i = 0; i < reps; i++)
-	{
-		liftLeft.move(-voltage);
-		liftRight.move(voltage);
-		pros::delay(delay);
-	}
-	liftLeft.set_brake_mode(E_MOTOR_BRAKE_HOLD);
-	liftRight.set_brake_mode(E_MOTOR_BRAKE_HOLD);
-}
-
-void robotState::brakeLeft()  // the above drive commands don't stop on their own. This is the stop command.
-{
-	backLeft.set_brake_mode(E_MOTOR_BRAKE_HOLD);
-	frontLeft.set_brake_mode(E_MOTOR_BRAKE_HOLD);
-}
-
-void robotState::brakeRight() // right stop
-{
-	backRight.set_brake_mode(E_MOTOR_BRAKE_HOLD);
-	frontRight.set_brake_mode(E_MOTOR_BRAKE_HOLD);
-}
-
-void robotState::forward(int voltage, int reps) // drive forward
-{
-
-		rightMotors(voltage, reps);
-		leftMotors(voltage, reps);
-		pros::delay(delay);
-
-	brakeLeft();
-	brakeRight();
-
-}
-
-void robotState::backward(int voltage, int reps) // drive backward
-{
-	rightMotors(-voltage, reps);
-	leftMotors(-voltage, reps);
-		pros::delay(delay);
-	brakeLeft();
-	brakeRight();
-}
 
 /**
  * Runs initialization code. This occurs as soon as the program is started.
@@ -208,10 +125,13 @@ void robotState::backward(int voltage, int reps) // drive backward
      pros::lcd::initialize();
      pros::lcd::set_text(1, "BONOBO"); // monke time
      pros::lcd::register_btn1_cb(on_center_button);
-     frontLeft.set_brake_mode(E_MOTOR_BRAKE_COAST);//setting brake mode (remove to revert to immediate stops.)
-     frontRight.set_brake_mode(E_MOTOR_BRAKE_COAST); // coast = will continue on momentum when button no longer pressed
+     frontLeft.set_brake_mode(E_MOTOR_BRAKE_COAST);//setting brake mode
+     frontRight.set_brake_mode(E_MOTOR_BRAKE_COAST);
      backLeft.set_brake_mode(E_MOTOR_BRAKE_COAST);
      backRight.set_brake_mode(E_MOTOR_BRAKE_COAST);
+		 liftLeft.set_brake_mode(E_MOTOR_BRAKE_HOLD);
+		 liftRight.set_brake_mode(E_MOTOR_BRAKE_HOLD);
+		 clamp.set_brake_mode(E_MOTOR_BRAKE_HOLD);
 		 //opcontrol; (add when autonomous made)
  }
 
@@ -222,78 +142,68 @@ void robotState::backward(int voltage, int reps) // drive backward
  */
 void disabled() {}
 
-/**
- * Runs after initialize(), and before autonomous when connected to the Field
- * Management System or the VEX Competition Switch. This is intended for
- * competition-specific initialization routines, such as an autonomous selector
- * on the LCD.
- *
- * This task will exit when the robot is enabled and autonomous or opcontrol
- * starts.
- */
 void competition_initialize() {}
 
-/**
- * Runs the user autonomous code. This function will be started in its own task
- * with the default priority and stack size whenever the robot is enabled via
- * the Field Management System or the VEX Competition Switch in the autonomous
- * mode. Alternatively, this function may be called in initialize or opcontrol
- * for non-competition testing purposes.
- *
- * If the robot is disabled or communications is lost, the autonomous task
- * will be stopped. Re-enabling the robot will restart the task, not re-start it
- * from where it left off.
- */
- void autonomous() {}
+ void autonomous() {
+	 frontLeft.set_brake_mode(E_MOTOR_BRAKE_HOLD);//setting brake mode
+	 frontRight.set_brake_mode(E_MOTOR_BRAKE_HOLD);
+	 backLeft.set_brake_mode(E_MOTOR_BRAKE_HOLD);
+	 backRight.set_brake_mode(E_MOTOR_BRAKE_HOLD);
+ }
 
- /** Runs the operator control code. This function will be started in its own task
- * with the default priority and stack size whenever the robot is enabled via
- * the Field Management System or the VEX Competition Switch in the operator
- * control mode.
- *
- * If no competition control is connected, this function will run immediately
- * following initialize().
- *
- * If the robot is disabled or communications is lost, the
- * operator control task will be stopped. Re-enabling the robot will restart the
- * task, not resume it from where it left off.
- */
-void opcontrol() { //FUNCTIONS TO BUTTONS
-	double intakeSpeed = 127;
+void opcontrol() { //DRIVING MODE
 	double liftSpeed = 127;
-	double intakeLiftSpeed = 75;
+	double clampSpeed = 200;
+	double clampPos = 125;
+	bool clampDown = false;
 		pros::Controller master(pros::E_CONTROLLER_MASTER);
 	controllerState controls;
 
 	while (true) {
 		controls.getControllerState();
-		frontLeft.move(controls.leftStick.y);
-		backLeft.move(controls.leftStick.y);
-		frontRight.move(-controls.rightStick.y);
-		backRight.move(-controls.rightStick.y);
-
-		if(controls.rightBumper1)
-		{
-			intakeLeft.move(intakeSpeed);
-			intakeRight.move(-intakeSpeed);
-		} else if(controls.rightBumper2) {
-			intakeLeft.move(-intakeSpeed);
-			intakeRight.move(intakeSpeed);
-		}	else {
-			intakeLeft.move(0);
-			intakeRight.move(0);
-			intakeRight.set_brake_mode(E_MOTOR_BRAKE_HOLD);
-			intakeLeft.set_brake_mode(E_MOTOR_BRAKE_HOLD);
-		}
+		frontLeft.move(-controls.leftStick.y);
+		backLeft.move(-controls.leftStick.y);
+		frontRight.move(controls.rightStick.y);
+		backRight.move(controls.rightStick.y);
 
 		if(controls.leftBumper1)
 		{
-			lift.move(liftSpeed);
+			liftLeft.move(-liftSpeed);
+			liftRight.move(liftSpeed);
 		} else if(controls.leftBumper2) {
-			lift.move(-liftSpeed);
+			liftLeft.move(liftSpeed);
+			liftRight.move(-liftSpeed);
 		} else {
-			lift.move(0);
-			lift.set_brake_mode(E_MOTOR_BRAKE_HOLD);
+			liftLeft.move(0);
+			liftRight.move(0);
+		}
+
+		if(controls.rightBumper1)
+		{
+			if(clampDown == false){
+				clamp.move(0);
+			} else {
+					for(int i = 0; i < clampPos; i++)
+					{
+						clamp.move(-clampSpeed);
+						pros::delay(1);
+					}
+				clampDown = !clampDown;
+			}
+		} else if (controls.rightBumper2) {
+			if(clampDown == true)
+			{
+				clamp.move(0);
+			} else {
+				for(int i = 0; i < clampPos; i++)
+				{
+					clamp.move(clampSpeed);
+					pros::delay(1);
+				}
+			  clampDown = !clampDown;
+			}
+		} else {
+			clamp.move(0);
 		}
 
 		pros::lcd::print(0, "%d %d %d", (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,

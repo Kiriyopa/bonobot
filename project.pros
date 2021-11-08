@@ -1,7 +1,7 @@
 {
     "py/object": "pros.conductor.project.Project",
     "py/state": {
-        "project_name": "DefaultCode",
+        "project_name": "Bonobot",
         "target": "v5",
         "templates": {
             "kernel": {
@@ -302,6 +302,11 @@
                 "version": "4.2.0"
             }
         },
-        "upload_options": {}
+        "upload_options": {
+            "compress_bin": true,
+            "description": "Created with PROS",
+            "remote_name": "Bonobot",
+            "slot": 1
+        }
     }
 }

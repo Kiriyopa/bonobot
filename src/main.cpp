@@ -11,9 +11,9 @@ Motor frontRight(11); //correct
 Motor backLeft(4);
 Motor backRight(2); //correct
 Motor liftLeft(13);
-Motor liftRight(1);
+Motor liftRight(1); //correct
 Motor clamp(12); //correct
-Motor backLift(7);
+Motor backLift(7); //correct
 
 class robotState  //naming functions for autonomous, all removed and will return when autonomous is programmed
 {
@@ -28,6 +28,7 @@ public:
 	void lowerBack(int voltage, int reps);
 	void clampUp(int voltage, int reps);
 	void clampDown(int voltage, int reps);
+	void clampStartDown();
 public:
 	int delay = 1; //initialize delay timedouble clampSpeed = 500;
 	bool clampIsDown = false;
@@ -112,6 +113,8 @@ controllerState::controllerState()  // initializing all controller button values
     frontRight.move(0);
     backRight.move(0);
     backLeft.move(0);
+		liftLeft.move(0);
+		liftRight.move(0);
 }
 
 void robotState::rightMotors(int voltage, int reps)
@@ -215,6 +218,10 @@ void robotState::clampDown(int voltage, int reps)
   }
 }
 
+void robotState::clampStartDown(){
+	clampIsDown == true;
+}
+
 void on_center_button() { // callback function from template (does the text actually display?)
 	static bool pressed = false;
 	pressed = !pressed;
@@ -254,14 +261,41 @@ void disabled() {}
 
 void competition_initialize() {}
 
+//AUTONOMOUS
+
  void autonomous() {
 	 frontLeft.set_brake_mode(E_MOTOR_BRAKE_HOLD);//setting brake mode
 	 frontRight.set_brake_mode(E_MOTOR_BRAKE_HOLD);
 	 backLeft.set_brake_mode(E_MOTOR_BRAKE_HOLD);
 	 backRight.set_brake_mode(E_MOTOR_BRAKE_HOLD);
 	 double clampPos = 600;
-	 double liftSpeed = 100;
-	 double driveSpeed = 100;
+	 double liftSpeed = 1200;
+	 double driveSpeed = 85;
+	 int step = 1;
+	 while(true){
+	 if(step == 1){
+	 robot.raiseFront(liftSpeed, 300);
+	 stop();
+	 pros::delay(300);
+	 step = step +1;
+ } else if(step == 2){
+	 robot.leftMotors(-driveSpeed, 80);
+	 robot.rightMotors(driveSpeed+40, 200);
+	 stop();
+	 pros::delay(300);
+	 step = step +1;
+ } else if(step == 3){
+	 for(int i = 0; i < 20; i++)
+	 {
+	 clamp.move(20);
+  }
+	 pros::delay(300);
+	 step = step +1;
+ } else {
+	 stop();
+ }
+   }
+
  }
 
 void opcontrol() { //DRIVING MODE
@@ -278,9 +312,27 @@ void opcontrol() { //DRIVING MODE
 		backLeft.move(-controls.leftStick.y);
 		frontRight.move(controls.rightStick.y);
 		backRight.move(controls.rightStick.y);
-		liftLeft.move(-controls.leftStick.x);
-		liftRight.move(controls.leftStick.x);
-		backLift.move(controls.rightStick.x);
+
+		if(controls.leftBumper1)
+		{
+			liftLeft.move(-liftSpeed);
+			liftRight.move(liftSpeed);
+		} else if(controls.leftBumper2) {
+			liftLeft.move(liftSpeed);
+			liftRight.move(-liftSpeed);
+		} else {
+			liftLeft.move(0);
+			liftRight.move(0);
+		}
+
+		if(controls.uarrow)
+		{
+			backLift.move(liftSpeed);
+		} else if(controls.darrow) {
+			backLift.move(-liftSpeed);
+		} else {
+			backLift.move(0);
+		}
 
 		if(controls.rightBumper1)
 		{

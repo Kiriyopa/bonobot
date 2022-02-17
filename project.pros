@@ -1,7 +1,7 @@
 {
     "py/object": "pros.conductor.project.Project",
     "py/state": {
-        "project_name": "Bonobot",
+        "project_name": "AutonSkills",
         "target": "v5",
         "templates": {
             "kernel": {
@@ -305,8 +305,8 @@
         "upload_options": {
             "compress_bin": true,
             "description": "Created with PROS",
-            "remote_name": "Bonobot",
-            "slot": 1
+            "remote_name": "AutonSkills",
+            "slot": 3
         }
     }
 }

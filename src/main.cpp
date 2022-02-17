@@ -1,9 +1,6 @@
 #include "main.h"
+#include "cmath"
 using namespace pros;
-
-//To do: implement controls for back lift, switch lift controls to stick operation
-//fix front clamp operation (motor is now in the other orientation)
-//autonomous!!!!!!
 
 Controller master (E_CONTROLLER_MASTER); //Connects controller, Motors to port#
 Motor frontLeft(8);
@@ -12,26 +9,39 @@ Motor backLeft(4);
 Motor backRight(2); //correct
 Motor liftLeft(13);
 Motor liftRight(1); //correct
-Motor clamp(12); //correct
+Motor clamp(14); //correct
 Motor backLift(7); //correct
+IMU gyro(19);
 
 class robotState  //naming functions for autonomous, all removed and will return when autonomous is programmed
 {
 public:
 	void leftMotors(int voltage, int reps);
 	void rightMotors(int voltage, int reps);
+
+	void setClampUp();
+	void setClampDown();
+public:
+	void turnClockwise(int voltage, int reps);
+	void turnCounterclockwise(int voltage, int reps);
+	void turn(); // clockwise positive, counterclockwise negative;
 	void forward(int voltage, int reps);
 	void backward(int voltage, int reps);
+
 	void raiseFront(int voltage, int reps);
 	void lowerFront(int voltage, int reps);
+
 	void raiseBack(int voltage, int reps);
 	void lowerBack(int voltage, int reps);
+
 	void clampUp(int voltage, int reps);
 	void clampDown(int voltage, int reps);
-	void clampStartDown();
+
+	void turnTo(int voltage, double direction);
 public:
-	int delay = 1; //initialize delay timedouble clampSpeed = 500;
-	bool clampIsDown = false;
+	int delay = 1; //initialize delay time
+	bool clampIsDown = false; //FIGURE OUT A WAY TO CHANGE IT DEPENDING ON AUTON OR DRIVE START
+	double orientation = gyro.get_yaw()*(358.0/360.0);
 };
 
 class Vec2d //for stick inputs
@@ -115,11 +125,22 @@ controllerState::controllerState()  // initializing all controller button values
     backLeft.move(0);
 		liftLeft.move(0);
 		liftRight.move(0);
+		backLift.move(0);
+}
+
+robotState robot;
+
+void robotState::setClampUp(){
+	clampIsDown = false;
+}
+
+void robotState::setClampDown(){
+	clampIsDown = true;
 }
 
 void robotState::rightMotors(int voltage, int reps)
 {
- for(int i =0; i<reps; i++)
+ for(int i = 0; i < reps; i++)
  {
 	 frontRight.move(voltage);
 	 backRight.move(voltage);
@@ -129,36 +150,90 @@ void robotState::rightMotors(int voltage, int reps)
 
 void robotState::leftMotors(int voltage, int reps)
 {
- for(int i = 0; i<reps; i++)
+ for(int i = 0; i < reps; i++)
  {
- frontLeft.move(voltage);
- backLeft.move(voltage);
+ frontLeft.move(-voltage);
+ backLeft.move(-voltage);
  pros::delay(delay);
  }
 }
 
-void robotState::lowerFront(int voltage, int reps)
+void robotState::forward(int voltage, int reps)
 {
- for(int i = 0; i < reps; i++)
- {
+	for(int i = 0; i < reps; i++)
+	{
+	frontLeft.move(-voltage);
+	frontRight.move(voltage);
+	backLeft.move(-voltage);
+	backRight.move(voltage);
+	pros::delay(delay);
+	}
+}
+
+void robotState::backward(int voltage, int reps)
+{
+	for(int i = 0; i < reps; i++)
+  {
+  frontLeft.move(voltage);
+  frontRight.move(-voltage);
+  backLeft.move(voltage);
+  backRight.move(-voltage);
+  pros::delay(delay);
+  }
+}
+
+void robotState::turnTo(int voltage, double direction){
+	//while(robot.orientation > (direction + 10.0) || (robot.orientation < (direction - 10.0))){
+	while(true){
+		if(abs(gyro.get_yaw()*(358.0/360.0)-direction) > 5.0){ //upload this and make sure it works!
+			break;
+   	}else if(gyro.get_yaw()*(358.0/360.0) > direction){
+			robot.turnCounterclockwise(voltage, 1);
+		}else if(gyro.get_yaw()*(358.0/360.0) < direction){
+			robot.turnClockwise(voltage, 1);
+		}
+	}
+}
+
+void robotState::turnClockwise(int voltage, int reps)
+{
+	for(int i = 0; i < reps; i++){
+	frontLeft.move(-voltage);
+	backLeft.move(-voltage);
+	frontRight.move(-voltage);
+	backRight.move(-voltage);
+	pros::delay(delay);
+	}
+}
+
+void robotState::turnCounterclockwise(int voltage, int reps){
+	for(int i = 0; i < reps; i++)
+	{
+	frontLeft.move(voltage);
+	backLeft.move(voltage);
+	frontRight.move(voltage);
+	backRight.move(voltage);
+	pros::delay(delay);
+}
+}
+
+void robotState::lowerFront(int voltage, int reps){
+ for(int i = 0; i < reps; i++){
 	 liftLeft.move(voltage);
 	 liftRight.move(-voltage);
 	 pros::delay(delay);
  }
 }
 
-void robotState::raiseFront(int voltage, int reps)
-{
- for(int i = 0; i < reps; i++)
- {
+void robotState::raiseFront(int voltage, int reps){
+ for(int i = 0; i < reps; i++){
 	 liftLeft.move(-voltage);
 	 liftRight.move(voltage);
 	 pros::delay(delay);
  }
 }
 
-void robotState::lowerBack(int voltage, int reps)
-{
+void robotState::lowerBack(int voltage, int reps){
  for(int i = 0; i < reps; i++)
  {
    backLift.move(-voltage);
@@ -166,63 +241,40 @@ void robotState::lowerBack(int voltage, int reps)
  }
 }
 
-void robotState::raiseBack(int voltage, int reps)
-{
- for(int i = 0; i < reps; i++)
- {
+void robotState::raiseBack(int voltage, int reps){
+ for(int i = 0; i < reps; i++){
 	 backLift.move(voltage);
 	 pros::delay(delay);
  }
 }
 
-void robotState::forward(int voltage, int reps)
-{
-	 rightMotors(voltage, reps);
-	 leftMotors(-voltage, reps);
-	 pros::delay(delay);
-}
-
-void robotState::backward(int voltage, int reps)
-{
- rightMotors(-voltage, reps);
- leftMotors(voltage, reps);
-	 pros::delay(delay);
-}
-
-void robotState::clampUp(int voltage, int reps)
-{
+void robotState::clampUp(int voltage, int reps){
 	if(clampIsDown == false){
 		clamp.move(0);
 	} else {
-			for(int i = 0; i < reps; i++)
-			{
+			for(int i = 0; i < reps; i++){
 				clamp.move(voltage);
 				pros::delay(1);
 			}
+		clamp.move(0);
 		clampIsDown = !clampIsDown;
 	}
 }
 
-void robotState::clampDown(int voltage, int reps)
-{
-	if(clampIsDown == true)
-	{
+void robotState::clampDown(int voltage, int reps){
+	if(clampIsDown == true){
 		clamp.move(0);
 	} else {
-		for(int i = 0; i < reps; i++)
-		{
+		for(int i = 0; i < reps; i++){
 			clamp.move(-voltage);
 			pros::delay(1);
 		}
+		clamp.move(0);
 		clampIsDown = !clampIsDown;
   }
 }
 
-void robotState::clampStartDown(){
-	clampIsDown == true;
-}
-
-void on_center_button() { // callback function from template (does the text actually display?)
+void on_center_button() { // funny
 	static bool pressed = false;
 	pressed = !pressed;
 	if (pressed) {
@@ -232,14 +284,12 @@ void on_center_button() { // callback function from template (does the text actu
 	}
 }
 
-robotState robot;
-
 /**
  * Runs initialization code. This occurs as soon as the program is started.
  */
  void initialize() {
      pros::lcd::initialize();
-     pros::lcd::set_text(1, "BONOBO"); // monke time
+     // monke time
      pros::lcd::register_btn1_cb(on_center_button);
      frontLeft.set_brake_mode(E_MOTOR_BRAKE_COAST);//setting brake mode
      frontRight.set_brake_mode(E_MOTOR_BRAKE_COAST);
@@ -247,7 +297,7 @@ robotState robot;
      backRight.set_brake_mode(E_MOTOR_BRAKE_COAST);
 		 liftLeft.set_brake_mode(E_MOTOR_BRAKE_HOLD);
 		 liftRight.set_brake_mode(E_MOTOR_BRAKE_HOLD);
-		 clamp.set_brake_mode(E_MOTOR_BRAKE_HOLD);
+		 clamp.set_brake_mode(E_MOTOR_BRAKE_BRAKE);
 		 backLift.set_brake_mode(E_MOTOR_BRAKE_HOLD);
 		 //opcontrol; (add when autonomous made)
  }
@@ -263,50 +313,56 @@ void competition_initialize() {}
 
 //AUTONOMOUS
 
- void autonomous() {
-	 frontLeft.set_brake_mode(E_MOTOR_BRAKE_HOLD);//setting brake mode
-	 frontRight.set_brake_mode(E_MOTOR_BRAKE_HOLD);
-	 backLeft.set_brake_mode(E_MOTOR_BRAKE_HOLD);
-	 backRight.set_brake_mode(E_MOTOR_BRAKE_HOLD);
-	 double clampPos = 600;
-	 double liftSpeed = 1200;
-	 double driveSpeed = 85;
-	 int step = 1;
-	 while(true){
-	 if(step == 1){
-	 robot.raiseFront(liftSpeed, 300);
-	 stop();
-	 pros::delay(300);
-	 step = step +1;
- } else if(step == 2){
-	 robot.leftMotors(-driveSpeed, 80);
-	 robot.rightMotors(driveSpeed+40, 200);
-	 stop();
-	 pros::delay(300);
-	 step = step +1;
- } else if(step == 3){
-	 for(int i = 0; i < 20; i++)
-	 {
-	 clamp.move(20);
-  }
-	 pros::delay(300);
-	 step = step +1;
- } else {
-	 stop();
- }
-   }
+void autonomous() {
+ frontLeft.set_brake_mode(E_MOTOR_BRAKE_HOLD);//setting brake mode
+ frontRight.set_brake_mode(E_MOTOR_BRAKE_HOLD);
+ backLeft.set_brake_mode(E_MOTOR_BRAKE_HOLD);
+ backRight.set_brake_mode(E_MOTOR_BRAKE_HOLD);
+ int clampPos = 200;
+ int liftSpeed = 127;
+ int driveSpeed = 85;
+ int turnSpeed = 20;
+ int clampSpeed = 110;
+ delay(3000);
+ robot.turnTo(turnSpeed, 90.0);
 
- }
+ //robot.raiseFront(liftSpeed, 250);
+// robot.turnClockwise(driveSpeed, 50);
+ //robot.forward(driveSpeed, 230);
+ //stop();
+ //pros::delay(300);
+ //robot.setClampDown();
+ //robot.clampUp(clampSpeed, clampPos+400);
+// pros::delay(300);
+// robot.backward(driveSpeed, 200);
+ //stop();
+ //robot.lowerFront(liftSpeed, 500);
+ //stop();
+ //robot.turnClockwise(driveSpeed, 390);
+ //stop();
+ //robot.lowerBack(liftSpeed, 940);
+ //stop();
+// robot.backward(driveSpeed, 1400);
+// stop();
+ //robot.raiseBack(liftSpeed, 870);
+ //stop();
+ //robot.forward(driveSpeed, 1200);
+ //stop();
+}
 
 void opcontrol() { //DRIVING MODE
 	pros::Controller master(pros::E_CONTROLLER_MASTER);
 	controllerState controls;
-	double clampPos = 600;
-	double clampSpeed = 500;
-	double liftSpeed = 100;
-	double driveSpeed = 100;
+	int clampPos = 500;
+	int clampSpeed = 127;
+	int liftSpeed = 127;
+	int driveSpeed = 100;
+	robot.setClampUp();
 
 	while (true) {
+		pros::lcd::set_text(1, std::to_string(gyro.get_yaw()));
+    //pros::lcd::set_text(2, std::to_string(frontLeft.FUNCTION TO READ EncoderData()));
+		clamp.set_brake_mode(E_MOTOR_BRAKE_COAST);
 		controls.getControllerState();
 		frontLeft.move(-controls.leftStick.y);
 		backLeft.move(-controls.leftStick.y);
@@ -350,6 +406,7 @@ void opcontrol() { //DRIVING MODE
 		int right = master.get_analog(ANALOG_RIGHT_Y);
 
 		pros::delay(10);
+
 	}
 }
 
